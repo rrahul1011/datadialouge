@@ -3,12 +3,48 @@ import os
 import pandas as pd
 import sqlite3
 import uuid
+import time
 import graphviz
-from utils import  custom_css,format_answer_in_text_form
+from utils import  custom_css
 from streamlit_option_menu import option_menu
 from langchain_anthropic import ChatAnthropic
+from typing import Iterator
+model   =   ChatAnthropic(
+                model="claude-3-5-sonnet-20240620",
+                    temperature=0,
+             max_tokens= 8192, top_p= 0
+            )
 
+def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_query: str) -> Iterator[str]:
+    if isinstance(answer, pd.DataFrame) and len(answer) <= 104:
+        answer_dict = answer.to_dict()
+        answer_format = f'''Summarize the answer to the question: "{user_question}" using the provided JSON data: "{answer_dict}", and the SQL query used to obtain this data: "{sql_query}".
 
+                            1. Analyze the SQL query to understand:
+                            - The tables and columns being queried
+                            - Any joins, aggregations, or transformations applied
+                            - The meaning and context of each column in the result set
+
+                            2. Based on this analysis, interpret the data in the JSON, understanding what each field represents.
+
+                            3. Summarize the answer for a business executive audience:
+                            - Use bullet points for clarity
+                            - Highlight key numbers using bold formatting (e.g., **1000**)
+                            - Use tables only when necessary for clarity
+                            - Focus on directly answering the question without extra recommendations or reasoning
+                            - Keep the summary concise and to the point
+
+                            4. Formatting guidelines:
+                            - Start directly with the answer, without mentioning the audience or using phrases like "Here is a summary..."
+                            - Use a single blank line between bullet points
+                            - Replace any '$' with "\$" in the final text
+                            - Present the information as a natural, conversational response without referencing the data source
+
+                            Aim for a clear, concise summary that directly addresses the question based on the provided data and query analysis.'''
+        response = model.stream(answer_format)
+        for chunk in response:
+            yield chunk
+            time.sleep(0.001)
 
 def validate_api_key(api_key):
     try:
@@ -17,12 +53,10 @@ def validate_api_key(api_key):
             model="claude-3-5-sonnet-20240620",
             temperature=0, top_p=0
         )
-        
-        # Attempt a simple completion to validate the key
         model.invoke("Hello")
+        st.success("API Key validated successfully!")
         return True
     except Exception as e:
-        st.error(f"API Key validation failed: {str(e)}")
         return False
 
 if 'current_chat_id' not in st.session_state:
@@ -265,55 +299,71 @@ def main():
     if 'api_key_validated' not in st.session_state:
         st.session_state.api_key_validated = False
 
-    # API Key input in the sidebar
-    with st.sidebar:
-        api_key = st.text_input("Anthropic API Key", type="password", help="Your API key will be securely stored as an environment variable")
-    
-        if st.button("Validate API Key", use_container_width=True):
-            if validate_api_key(api_key):
-                os.environ["ANTHROPIC_API_KEY"] = api_key
-                st.session_state.api_key_validated = True
-                st.success("API Key validated successfully! You can now proceed with data upload.")
-            else:
-                st.session_state.api_key_validated = False
-                st.error("Failed to validate API Key. Please check and try again.")
-
-    # Only show the main content if API key is validated
-    if st.session_state.api_key_validated:
-        # Initialize session state for uploaded data and current chat ID
-        if 'uploaded_df' not in st.session_state:
-            st.session_state['uploaded_df'] = None
-        if 'current_chat_id' not in st.session_state:
-            st.session_state.current_chat_id = str(uuid.uuid4())
-
-        # Sidebar navigation using option_menu
-        with st.sidebar:
-            selected = option_menu(
-                menu_title="DataDialogue",
-                options=["AI Bot", "Data Management"],
-                icons=["chat", "database"],
-                menu_icon="cast",
-                default_index=0,
-                styles={
-                    "container": {"padding": "0!important", "background-color": "#f9f9f9"},
-                    "icon": {"color": "#1e3d7d", "font-size": "25px"}, 
-                    "nav-link": {
-                        "font-size": "16px", 
-                        "text-align": "left", 
-                        "margin":"0px", 
-                        "--hover-color": "#f5f5f5",
-                        "color": "#1e3d7d",
-                    },
-                    "nav-link-selected": {"background-color": "#dedfe0", "color": "#d81e18"},
-                }
-            )
-
-        if selected == "AI Bot":
-            show_chat_interface()
-        elif selected == "Data Management":
-            show_data_management()
+    if not st.session_state.api_key_validated:
+        show_auth_ui()
     else:
-        st.warning("Please enter and validate your Anthropic API Key to access the application.")
+        show_main_app()
+
+def show_auth_ui():
+    st.markdown("""
+    <div style="display: flex; justify-content: center; align-items: center; height: 80vh;">
+        <div style="background-color: #ffffff; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 400px;">
+            <h1 style="text-align: center; color: #1e3d7d; margin-bottom: 30px;">Welcome to DataDialogue</h1>
+            <p style="text-align: center; color: #666; margin-bottom: 1px;">Please enter your Anthropic API Key to get started.</p>
+    """, unsafe_allow_html=True)
+
+    api_key = st.text_input("Anthropic API Key", type="password", help="Your API key will be securely stored as an environment variable")
+    
+    col1, col2, col3 = st.columns([1,2,1])
+    with col2:
+        if st.button("Validate API Key", use_container_width=True):
+            with st.spinner("Validating API Key..."):
+                if validate_api_key(api_key):
+                    os.environ["ANTHROPIC_API_KEY"] = api_key
+                    st.session_state.api_key_validated = True
+                    st.success("API Key validated successfully!")
+                    st.experimental_rerun()
+                else:
+                    st.error("Failed to validate API Key. Please check and try again.")
+
+    st.markdown("""
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+def show_main_app():
+    # Initialize session state for uploaded data and current chat ID
+    if 'uploaded_df' not in st.session_state:
+        st.session_state['uploaded_df'] = None
+    if 'current_chat_id' not in st.session_state:
+        st.session_state.current_chat_id = str(uuid.uuid4())
+
+    # Sidebar navigation using option_menu
+    with st.sidebar:
+        selected = option_menu(
+            menu_title="DataDialogue",
+            options=["AI Bot", "Data Management"],
+            icons=["chat", "database"],
+            menu_icon="cast",
+            default_index=0,
+            styles={
+                "container": {"padding": "0!important", "background-color": "#f9f9f9"},
+                "icon": {"color": "#1e3d7d", "font-size": "25px"}, 
+                "nav-link": {
+                    "font-size": "16px", 
+                    "text-align": "left", 
+                    "margin":"0px", 
+                    "--hover-color": "#f5f5f5",
+                    "color": "#1e3d7d",
+                },
+                "nav-link-selected": {"background-color": "#dedfe0", "color": "#d81e18"},
+            }
+        )
+
+    if selected == "AI Bot":
+        show_chat_interface()
+    elif selected == "Data Management":
+        show_data_management()
 
 def show_data_management():
     st.markdown("""

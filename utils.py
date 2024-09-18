@@ -94,33 +94,3 @@ def custom_css():
     """, unsafe_allow_html=True)
 
 
-def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_query: str) -> Iterator[str]:
-    if isinstance(answer, pd.DataFrame) and len(answer) <= 104:
-        answer_dict = answer.to_dict()
-        answer_format = f'''Summarize the answer to the question: "{user_question}" using the provided JSON data: "{answer_dict}", and the SQL query used to obtain this data: "{sql_query}".
-
-                            1. Analyze the SQL query to understand:
-                            - The tables and columns being queried
-                            - Any joins, aggregations, or transformations applied
-                            - The meaning and context of each column in the result set
-
-                            2. Based on this analysis, interpret the data in the JSON, understanding what each field represents.
-
-                            3. Summarize the answer for a business executive audience:
-                            - Use bullet points for clarity
-                            - Highlight key numbers using bold formatting (e.g., **1000**)
-                            - Use tables only when necessary for clarity
-                            - Focus on directly answering the question without extra recommendations or reasoning
-                            - Keep the summary concise and to the point
-
-                            4. Formatting guidelines:
-                            - Start directly with the answer, without mentioning the audience or using phrases like "Here is a summary..."
-                            - Use a single blank line between bullet points
-                            - Replace any '$' with "\$" in the final text
-                            - Present the information as a natural, conversational response without referencing the data source
-
-                            Aim for a clear, concise summary that directly addresses the question based on the provided data and query analysis.'''
-        response = model.stream(answer_format)
-        for chunk in response:
-            yield chunk
-            time.sleep(0.001)
