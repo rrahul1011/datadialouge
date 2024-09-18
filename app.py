@@ -15,6 +15,19 @@ model   =   ChatAnthropic(
              max_tokens= 8192, top_p= 0
             )
 
+def fix_sidebar_width():
+    st.markdown(
+    """
+    <style>
+        section[data-testid="stSidebar"] {
+            width: 5px !important; # Set the width to your desired value
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,)
+
+fix_sidebar_width()
+
 def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_query: str) -> Iterator[str]:
     if isinstance(answer, pd.DataFrame) and len(answer) <= 104:
         answer_dict = answer.to_dict()
