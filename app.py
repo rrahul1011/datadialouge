@@ -297,7 +297,7 @@ def main():
     """
     <style>
         section[data-testid="stSidebar"] {
-            width: 5px !important; # Set the width to your desired value
+            width: 3px !important; # Set the width to your desired value
         }
     </style>
     """,
@@ -483,7 +483,8 @@ def process_user_input(user_input):
         result = None
         st.error(f"Error executing query: {e}")
     with st.chat_message("assistant"):
-        bot_response =  st.write_stream(format_answer_in_text_form(user_input, result, sql_query))
+        with st.spinner("Generating SQL..."):
+            bot_response =  st.write_stream(format_answer_in_text_form(user_input, result, sql_query))
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
     # with st.chat_message("assistant"):
     #     st.markdown(bot_response)
