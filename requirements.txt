@@ -1,0 +1,8 @@
+os
+pandas
+streamlit
+langchain-anthropic
+sqlite3
+uuid
+graphviz
+streamlit-option-menu
