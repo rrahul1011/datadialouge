@@ -308,7 +308,7 @@ def show_auth_ui():
     st.markdown("""
     <div style="display: flex; justify-content: center; align-items: center; height: 80vh;">
         <div style="background-color: #ffffff; padding: 40px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); width: 400px;">
-            <h1 style="text-align: center; color: #1e3d7d; margin-bottom: 30px;">Welcome to DataDialogue</h1>
+            <h1 style="text-align: center; color: #1e3d7d; margin-bottom: 0px;">Welcome to DataDialogue</h1>
             <p style="text-align: center; color: #666; margin-bottom: 1px;">Please enter your Anthropic API Key to get started.</p>
     """, unsafe_allow_html=True)
 
