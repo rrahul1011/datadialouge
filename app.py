@@ -54,7 +54,6 @@ def validate_api_key(api_key):
             temperature=0, top_p=0
         )
         model.invoke("Hello")
-        st.success("API Key validated successfully!")
         return True
     except Exception as e:
         return False
@@ -322,7 +321,6 @@ def show_auth_ui():
                     os.environ["ANTHROPIC_API_KEY"] = api_key
                     st.session_state.api_key_validated = True
                     st.success("API Key validated successfully!")
-                    st.experimental_rerun()
                 else:
                     st.error("Failed to validate API Key. Please check and try again.")
 
