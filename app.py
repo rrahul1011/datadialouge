@@ -17,7 +17,7 @@ model   =   ChatAnthropic(
 
 
 
-def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_query: str) -> Iterator[str]:
+def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_query: str) -> str:
     if isinstance(answer, pd.DataFrame) and len(answer) <= 104:
         answer_dict = answer.to_dict()
         answer_format = f'''Summarize the answer to the question: "{user_question}" using the provided JSON data: "{answer_dict}", and the SQL query used to obtain this data: "{sql_query}".
@@ -43,10 +43,9 @@ def format_answer_in_text_form(user_question: str, answer: pd.DataFrame, sql_que
                             - Present the information as a natural, conversational response without referencing the data source
 
                             Aim for a clear, concise summary that directly addresses the question based on the provided data and query analysis.'''
-        response = model.stream(answer_format)
-        for chunk in response:
-            yield chunk
-            time.sleep(0.001)
+        response = model.invoke(answer_format)
+        return str(response.content)  # Ensure we return a string
+    return "No answer could be generated."  # Default return if conditions are not met
 
 def validate_api_key(api_key):
     try:
@@ -128,8 +127,11 @@ def save_to_db(df):
     placeholders = ', '.join(['?'] * len(df.columns))
     insert_query = f"INSERT INTO my_table VALUES ({placeholders})"
     
+    # Convert all data to strings before inserting
     for row in df.itertuples(index=False):
-        cursor.execute(insert_query, row)
+        # Convert each element to string
+        string_row = tuple(str(elem) if elem is not None else '' for elem in row)
+        cursor.execute(insert_query, string_row)
     
     conn.commit()
     conn.close()
@@ -241,11 +243,20 @@ def save_chat_history(chat_id, user_input, bot_response):
     
     # Insert new chat entry
     entry_id = str(uuid.uuid4())
-    cursor.execute("INSERT INTO chat_history (id, chat_id, user_input, bot_response) VALUES (?, ?, ?, ?)",
-                   (entry_id, chat_id, user_input, bot_response))
     
-    conn.commit()
-    conn.close()
+    # Convert all inputs to strings
+    chat_id = str(chat_id)
+    user_input = str(user_input)
+    bot_response = str(bot_response)
+    
+    try:
+        cursor.execute("INSERT INTO chat_history (id, chat_id, user_input, bot_response) VALUES (?, ?, ?, ?)",
+                       (entry_id, chat_id, user_input, bot_response))
+        conn.commit()
+    except sqlite3.Error as e:
+        print(f"An error occurred: {e}")
+    finally:
+        conn.close()
 
 # Function to load chat history from database
 def load_chat_history(chat_id):
@@ -482,12 +493,12 @@ def process_user_input(user_input):
     except Exception as e:
         result = None
         st.error(f"Error executing query: {e}")
+    
     with st.chat_message("assistant"):
-        with st.spinner("Generating SQL..."):
-            bot_response =  st.write_stream(format_answer_in_text_form(user_input, result, sql_query))
+        with st.spinner("Generating response..."):
+            bot_response = format_answer_in_text_form(user_input, result, sql_query)
+            st.write(bot_response)
         st.session_state.messages.append({"role": "assistant", "content": bot_response})
-    # with st.chat_message("assistant"):
-    #     st.markdown(bot_response)
     
     if result is not None and not result.empty:
         st.session_state.messages.append({
