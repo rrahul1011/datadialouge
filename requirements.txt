@@ -6,3 +6,4 @@ db-sqlite3
 uuid
 graphviz
 streamlit-option-menu
+openpyxl
